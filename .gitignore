@@ -5,3 +5,5 @@
 *.py
 toy/
 .vscode/
+build/
+.gdbinit
