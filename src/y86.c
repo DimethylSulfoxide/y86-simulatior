@@ -6,8 +6,10 @@
 
 
 int init(void);
-uchar get_byte_from_mem(int64_t addr);
-int64_t get_word_from_mem(int64_t addr);
+uchar read_byte_from_mem(int64_t addr);
+int write_byte_to_mem(int64_t addr, uchar byte);
+int64_t read_word_from_mem(int64_t addr);
+int write_word_to_mem(int64_t addr, int64_t word);
 int exec_single_instr(void);
 int exception(int);
 uchar get_ra(uchar rab);
@@ -17,8 +19,13 @@ uchar get_rb(uchar rab);
 
 int main(char argc, char ** argv) {
     init();
-    uchar bytes[] = {0x30, 0xf0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x20, 0x02};
-    memcpy(MEM, bytes, sizeof(uchar) * 12);
+    uchar bytes[] = {
+        0x30, 0xf0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 
+        0x20, 0x02, 
+        0x40, 0x21, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x50, 0x13, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+    };
+    memcpy(MEM, bytes, sizeof(uchar) * 32);
     int flag;
     while (1) {
         if ((flag = exec_single_instr())){
@@ -37,27 +44,43 @@ int init(void) {
     return 0;
 }
 
-uchar get_byte_from_mem(int64_t addr) {
-    if (addr >= MEM_LENGTH) {
+uchar read_byte_from_mem(int64_t addr) {
+    if (addr >= MEM_LENGTH || addr < 0) {
         exception(ADR);
         return OOM;
     }
     else {
-        PC ++;
+        // PC ++;
         return MEM[addr];
     }
 }
 
-int64_t get_word_from_mem(int64_t addr) {
+int write_byte_to_mem(int64_t addr, uchar byte) {
+    if (addr < 0 || addr >= MEM_LENGTH) {
+        exception(ADR);
+        return 1;
+    }
+    else {
+        MEM[addr] = byte;
+        return 0;
+    }
+}
+
+int64_t read_word_from_mem(int64_t addr) {
     int64_t a = 0;
     int64_t t = 0;
     // uchar t;
     for (int i = 0; i < 8; i ++) {
-        t = get_byte_from_mem(PC);
+        t = read_byte_from_mem(addr + i);
         a = a | t << (i * 8);
-        // a &= ((int64_t)get_byte_from_mem(PC)) << (i * 8);
     }
     return a;
+}
+
+int write_word_to_mem(int64_t addr, int64_t word) {
+    for (int i = 0; i < 8; i ++) {
+        write_byte_to_mem(addr + i, 0xff & (word >> i * 8));
+    }
 }
 
 int exception(int state) {
@@ -75,9 +98,10 @@ uchar get_rb(uchar rab) {
 
 int exec_single_instr(void) {
     uchar op, rab, ra, rb;
-    int64_t imm;
+    int64_t imm, tmp;
 
-    op = get_byte_from_mem(PC);
+    op = read_byte_from_mem(PC);
+    PC ++;
     switch (op >> 4) {
         case 0x00: 
             // halt
@@ -91,7 +115,8 @@ int exec_single_instr(void) {
 
         case 0x02:
             // rrmovq
-            rab = get_byte_from_mem(PC);
+            rab = read_byte_from_mem(PC);
+            PC ++;
             ra = get_ra(rab);
             rb = get_rb(rab);
             if (ra == 0x0f || rb == 0x0f) {
@@ -103,16 +128,93 @@ int exec_single_instr(void) {
 
         case 0x03:
             // irmovq
-            rab = get_byte_from_mem(PC);
+            rab = read_byte_from_mem(PC);
+            PC ++;
             ra = get_ra(rab);
             rb = get_rb(rab);
             if (rb == 0x0f || ra != 0x0f) {
                 exception(ADR);
                 break;
             }
-            imm = get_word_from_mem(PC);
+            imm = read_word_from_mem(PC);
+            PC += BYTES_PER_WORD;
             REGS[rb] = imm;
             break;
+
+        case 0x04:
+            // rmmovq
+            rab = read_byte_from_mem(PC);
+            PC ++;
+            ra = get_ra(rab);
+            rb = get_rb(rab);
+            if (rb == 0x0f || ra == 0x0f) {
+                exception(ADR);
+                break;
+            }
+            imm = read_word_from_mem(PC);
+            PC += BYTES_PER_WORD;
+
+            write_word_to_mem(REGS[rb] + imm, REGS[ra]);
+            break;
+
+        case 0x05:
+            // mrmovq
+            rab = read_byte_from_mem(PC);
+            PC ++;
+            ra = get_ra(rab);
+            rb = get_rb(rab);
+            if (rb == 0x0f || ra == 0x0f) {
+                exception(ADR);
+                break;
+            }
+            imm = read_word_from_mem(PC);
+            PC += BYTES_PER_WORD;
+
+            REGS[rb] = read_word_from_mem(REGS[ra] + imm);
+            break;
+
+        case 0x06:
+            // opQ
+            rab = read_byte_from_mem(PC);
+            PC ++;
+            ra = get_ra(rab);
+            rb = get_rb(rab);
+            if (rb == 0x0f || ra == 0x0f) {
+                exception(ADR);
+                break;
+            }
+            switch (op & 0xf) {
+                case 0:
+                    tmp = REGS[ra] + REGS[rb];
+                    // 两个加数符号位相同并且结果符号位与两者不同，则溢出
+                    if ((!((0x1 & REGS[ra] >> 31)^(0x1 & REGS[rb] >> 31))) &&
+                        ((0x1 & REGS[ra] >> 31)^(0x1 & tmp >> 31)))
+                        OF = 0x1;
+                    else OF = 0x0;
+
+                    if (!tmp)   ZF = 0x1; else ZF = 0x0;
+                    SF = 0x1 & tmp >> 31;
+
+
+                    REGS[rb] = tmp;
+                    break;
+                
+                case 1:
+                    // 同加法, 第二个加数取反加一按加法处理
+                    // REGS[rb] = ~REGS[rb] + 1;
+                    tmp = REGS[ra] - REGS[rb];
+                    if ((((0x1 & REGS[ra] >> 31)^(0x1 & REGS[rb] >> 31))) &&
+                        ((0x1 & REGS[ra] >> 31)^(0x1 & tmp >> 31)))
+                        OF = 0x1;
+                    else OF = 0x0;
+
+                    if (!tmp)   ZF = 0x1; else ZF = 0x0;
+                    SF = 0x1 & tmp >> 31;
+
+                    REGS[rb] = tmp;
+                    break;
+            }
+
 
         default:
             break;
