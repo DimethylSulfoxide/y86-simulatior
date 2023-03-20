@@ -1,0 +1,7 @@
+*.pdf
+*.png
+*.o
+*.exe
+*.py
+toy/
+.vscode/
