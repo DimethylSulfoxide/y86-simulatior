@@ -20,16 +20,23 @@ uchar get_rb(uchar rab);
 int main(char argc, char ** argv) {
     init();
     uchar bytes[] = {
-        0x30, 0xf0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 
+        0x30, 0xf0, 0x11, 0x22, 0x33, 0x44, 0x44, 0x33, 0x22, 0x11, 
+        0x20, 0x01, 
         0x20, 0x02, 
-        0x40, 0x21, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x50, 0x13, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+        0x20, 0x03, 
+        0x20, 0x04,
+        0x60, 0x01,
+        0x61, 0x02, 
+        0x62, 0x03, 
+        0x63, 0x04, 
+        // 0x40, 0x21, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // 0x50, 0x13, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
     };
-    memcpy(MEM, bytes, sizeof(uchar) * 32);
+    memcpy(MEM, bytes, sizeof(uchar) * 26);
     int flag;
     while (1) {
-        if ((flag = exec_single_instr())){
-            printf("Simulation stopped due to %s.\n", reasons[flag]);
+        if (exec_single_instr()){
+            printf("Simulation stopped due to %s.\n", reasons[STAT -1]);
             exit(-1);
         }
     }
@@ -203,15 +210,44 @@ int exec_single_instr(void) {
                     // 同加法, 第二个加数取反加一按加法处理
                     // REGS[rb] = ~REGS[rb] + 1;
                     tmp = REGS[ra] - REGS[rb];
-                    if ((((0x1 & REGS[ra] >> 31)^(0x1 & REGS[rb] >> 31))) &&
-                        ((0x1 & REGS[ra] >> 31)^(0x1 & tmp >> 31)))
+
+                    if ((REGS[rb] == ~REGS[rb] + 1) && REGS[ra] > 0)
                         OF = 0x1;
-                    else OF = 0x0;
+                    
+                    else {
+                        REGS[rb] = ~REGS[rb] + 1;
+                        if ((!((0x1 & REGS[ra] >> 31)^(0x1 & REGS[rb] >> 31))) &&
+                            ((0x1 & REGS[ra] >> 31)^(0x1 & tmp >> 31)))
+                            OF = 0x1;
+                        else OF = 0x0;
+                    }
 
                     if (!tmp)   ZF = 0x1; else ZF = 0x0;
                     SF = 0x1 & tmp >> 31;
 
                     REGS[rb] = tmp;
+                    break;
+
+                case 2:
+                    // andq
+                    REGS[rb] &= REGS[ra];
+
+                    OF = 0;
+                    if (!REGS[rb])  ZF = 0x1; else ZF = 0;
+                    SF = 0x1 & tmp >> 31;
+                    break;
+                
+                case 3:
+                    // xorq
+                    REGS[rb] ^= REGS[ra];
+
+                    OF = 0;
+                    if (!REGS[rb])  ZF = 0x1; else ZF = 0;
+                    SF = 0x1 & tmp >> 31;
+                    break;
+
+                default:
+                    exception(INS);
                     break;
             }
 
@@ -219,5 +255,5 @@ int exec_single_instr(void) {
         default:
             break;
     }
-    return 0;
+    return STAT != 1;
 }
