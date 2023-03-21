@@ -14,37 +14,43 @@ int exec_single_instr(void);
 int exception(int);
 uchar get_ra(uchar rab);
 uchar get_rb(uchar rab);
+void print_regs();
+void end();
 
 // int exec(uchar*);
 
 int main(char argc, char ** argv) {
     init();
     uchar bytes[] = {
+        // 0x70, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+        // 0x00,
+        // 0x31
         0x30, 0xf0, 0x11, 0x22, 0x33, 0x44, 0x44, 0x33, 0x22, 0x11, 
-        0x20, 0x01, 
-        0x20, 0x02, 
-        0x20, 0x03, 
-        0x20, 0x04,
-        0x60, 0x01,
-        0x61, 0x02, 
-        0x62, 0x03, 
-        0x63, 0x04, 
+        0x30, 0xf1, 0x11, 0x22, 0x33, 0x44, 0x44, 0x33, 0x22, 0x11,
+        0x61, 0x01,
+        0x23, 0x02
+        // 0x20, 0x01, 
+        // 0x20, 0x02, 
+        // 0x20, 0x03, 
+        // 0x20, 0x04,
+        // 0x60, 0x01,
+        // 0x61, 0x02, 
+        // 0x62, 0x03, 
+        // 0x63, 0x04, 
         // 0x40, 0x21, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         // 0x50, 0x13, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
     };
-    memcpy(MEM, bytes, sizeof(uchar) * 26);
+    memcpy(MEM, bytes, sizeof(uchar) * 24);
     int flag;
     while (1) {
-        if (exec_single_instr()){
-            printf("Simulation stopped due to %s.\n", reasons[STAT -1]);
-            exit(-1);
-        }
+        exec_single_instr();
     }
     return 0;
 }
 
 int init(void) {
     memset(REGS, 0, sizeof(int64_t) * 15);
+    REGS[15] = 0xadeaddecadefaded;
     ZF = SF = OF = 0;
     PC = 0;
     STAT = AOK;
@@ -92,7 +98,23 @@ int write_word_to_mem(int64_t addr, int64_t word) {
 
 int exception(int state) {
     STAT = state;
+    printf("Program end because of state %s.\n", reasons[STAT-1]);
+    end();
     return 0;
+}
+
+void print_regs() {
+    for (int i = 0; i < 8; i ++) {
+        printf("%s\t\t%0.16" PRIX64 "\t\t%s\t\t%0.16" PRIX64 "\n", reg_names[i], REGS[i], reg_names[i + 8], REGS[i+8] );
+    }
+    printf("\n\n");
+    printf("ZF\t\t%0.16X\t\tSTAT\t\t%0.1X\t%s\nSF\t\t%0.16X\t\tPC\t\t%0.16" PRIX64 "\nOF\t\t%0.16x\n", 
+            ZF, STAT, reasons[STAT-1], SF, PC, OF);
+}
+
+void end() {
+    print_regs();
+    exit(-1);
 }
 
 uchar get_ra(uchar rab) {
@@ -112,29 +134,91 @@ int exec_single_instr(void) {
     switch (op >> 4) {
         case 0x00: 
             // halt
+            if (op & 0x0f) exception(INS);
             exception(HLT);
             return 1;
             break;
         
         case 0x01:
             // nop
+            if (op & 0x0f) exception(INS);
             break;
 
-        case 0x02:
-            // rrmovq
+        // case 0x02:
+        //     // rrmovq
+        //     rab = read_byte_from_mem(PC);
+        //     PC ++;
+        //     ra = get_ra(rab);
+        //     rb = get_rb(rab);
+        //     if (ra == 0x0f || rb == 0x0f) {
+        //         exception(INS);
+        //         break;
+        //     }
+        //     REGS[rb] = REGS[ra];
+        //     break;
+
+        case 0x02: 
+            // cmovle, etc.
             rab = read_byte_from_mem(PC);
             PC ++;
             ra = get_ra(rab);
             rb = get_rb(rab);
-            if (ra == 0x0f || rb == 0x0f) {
-                exception(INS);
+            if (rb == 0x0f || ra == 0x0f) {
+                exception(ADR);
                 break;
             }
-            REGS[rb] = REGS[ra];
+            switch (op & 0x0f) {
+                case 0x00:
+                    // rrmovq
+                    REGS[rb] = REGS[ra];
+                    break;
+                
+                case 0x01:
+                    // cmovle
+                    if (SF ^ OF | ZF)
+                        REGS[rb] = REGS[ra];
+                    break;
+                
+                case 0x02:
+                    // cmovl
+                    if (SF ^ OF)
+                        REGS[rb] = REGS[ra];
+                    break;
+                
+                case 0x03:
+                    // cmove
+                    if (ZF)
+                        REGS[rb] = REGS[ra];
+                    break;
+                
+                case 0x04:
+                    // cmovne
+                    if (~ZF)
+                        REGS[rb] = REGS[ra];
+                    break;
+                
+                case 0x05:
+                    // cmovge
+                    if (~(SF ^ OF))
+                        REGS[rb] = REGS[ra];
+                    break;
+
+                case 0x06:
+                    // cmovg
+                    if (~(SF ^ OF) & ~ZF)
+                        REGS[rb] = REGS[ra];
+                    break;
+
+                default:
+                    // others 
+                    exception(INS);
+                    break;
+            }
             break;
 
         case 0x03:
             // irmovq
+            if (op & 0x0f) exception(INS);
             rab = read_byte_from_mem(PC);
             PC ++;
             ra = get_ra(rab);
@@ -150,6 +234,7 @@ int exec_single_instr(void) {
 
         case 0x04:
             // rmmovq
+            if (op & 0x0f) exception(INS);
             rab = read_byte_from_mem(PC);
             PC ++;
             ra = get_ra(rab);
@@ -166,6 +251,7 @@ int exec_single_instr(void) {
 
         case 0x05:
             // mrmovq
+            if (op & 0x0f) exception(INS);
             rab = read_byte_from_mem(PC);
             PC ++;
             ra = get_ra(rab);
@@ -250,9 +336,68 @@ int exec_single_instr(void) {
                     exception(INS);
                     break;
             }
+            break;
+
+        case 0x07: 
+            imm = read_word_from_mem(PC);
+            PC += BYTES_PER_WORD;
+            if (imm < 0 || imm >= MEM_LENGTH) 
+                exception(ADR);
+            switch (op & 0x0f) {
+                case 0x00:
+                    // jmp
+                    PC = imm;
+                    break;
+                
+                case 0x01:
+                    // jle
+                    if (SF ^ OF | ZF)
+                        PC = imm;
+                    break;
+                
+                case 0x02:
+                    // jl
+                    if (SF ^ OF)
+                        PC = imm;
+                    break;
+                
+                case 0x03:
+                    // je
+                    if (ZF)
+                        PC = imm;
+                    break;
+                
+                case 0x04:
+                    // jne
+                    if (~ZF)
+                        PC = imm;
+                    break;
+                
+                case 0x05:
+                    // jge
+                    if (~(SF ^ OF))
+                        PC = imm;
+                    break;
+
+                case 0x06:
+                    // jg
+                    if (~(SF ^ OF) & ~ZF)
+                        PC = imm;
+                    break;
+
+                default:
+                    // others 
+                    exception(INS);
+                    break;
+            }
+            break;
+
+        
+
 
 
         default:
+            exception(INS);
             break;
     }
     return STAT != 1;
