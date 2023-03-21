@@ -5,7 +5,7 @@
 #define ADR 3
 #define INS 4
 
-#define MEM_LENGTH 100
+#define MEM_LENGTH 96
 // 0xed
 #define OOM 237
 #define BYTES_PER_WORD 8 
