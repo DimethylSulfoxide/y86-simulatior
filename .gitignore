@@ -7,3 +7,4 @@ toy/
 .vscode/
 build/
 .gdbinit
+test/
