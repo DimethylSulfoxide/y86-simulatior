@@ -1,13 +1,43 @@
-irmovq      0xf, 0, 1
-irmovq      0xf, 1, 101
-irmovq      0xf, 2, 0
-irmovq      0xf, 3, 1
-irmovq      0xf, 4, 101
-irmovq      0xf, 9, 0
+    .pos 0
+    irmovq stack, %rsp
+    call main
+    halt
+
+    .align 8
+
+begin:
+    .quad 0x1           # long begin = 1
+end:
+    .quad 100           # long begin = 100
+
+main:
+    irmovq begin, %rdi  # rdi = &begin
+    irmovq end, %rsi    # rsi = &end
+    call sum            # sum(1, 100)
+    ret
+
+
+sum:
+    irmovq $1, %r8      # r8 = 1
+    mrmovq (%rdi), r9   # r9 = begin
+    mrmovq (%rsi), r10  # r10 = end
+    xorq %rax, %rax     # rax = 0
+    andq %r8, %r8       # set flags
+    jmp test            # goto test
+
 loop:
-rrmovq      4, 1
-add         0, 2
-add         3, 0
-sub         0, 1
-jl          loop
-rmmovq      2, 9, 88
+
+    addq %r10, %rax     # rax += end
+    subq %r8, %r10      # end -= 1
+    rrmovq %r10, %r11   # r11 = end
+    subq %r9, %r11      # r11 - begin
+
+    
+
+test:
+    jge loop            # stop when start > end
+    ret                 # return
+
+
+    .pos 0x200
+stack:

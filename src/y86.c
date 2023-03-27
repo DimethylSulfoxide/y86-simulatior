@@ -137,10 +137,10 @@ void print_regs()
 {
     for (int i = 0; i < 8; i++)
     {
-        printf("%s\t\t%0.16" PRIX64 "\t\t%s\t\t%0.16" PRIX64 "\n", reg_names[i], REGS[i], reg_names[i + 8], REGS[i + 8]);
+        printf("%s\t\t0x%0.16" PRIX64 "\t\t%s\t\t0x%0.16" PRIX64 "\n", reg_names[i], REGS[i], reg_names[i + 8], REGS[i + 8]);
     }
     printf("\n\n");
-    printf("ZF\t\t%0.16X\t\tSTAT\t\t%0.1X\t%s\nSF\t\t%0.16X\t\tPC\t\t%0.16" PRIX64 "\nOF\t\t%0.16x\n",
+    printf("ZF\t\t0x%0.16X\t\tSTAT\t\t%0.1X\t%s\nSF\t\t0x%0.16X\t\tPC\t\t0x%0.16" PRIX64 "\nOF\t\t0x%0.16x\n",
            ZF, STAT, reasons[STAT - 1], SF, PC, OF);
 }
 
