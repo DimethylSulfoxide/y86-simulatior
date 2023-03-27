@@ -8,3 +8,4 @@ toy/
 build/
 .gdbinit
 test/
+tools/
