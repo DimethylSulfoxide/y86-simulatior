@@ -8,8 +8,11 @@ uchar MEM[MEM_LENGTH];
 int64_t PC;
 uchar bytes[MEM_LENGTH];
 
-char reasons[4][4] = {"AOK", "HLT", "ADR", "INS"};
-char reg_names[16][4] = {
+enum status {AOK = 1, HLT, ADR, INS};
+enum regs {RAX = 0, RCX, RDX, RBX, RSP, RBP, RSI, RDI, R8, R9, R10, R11, R12, R13, R14, NIL};
+
+char status_string[5][4] = {"UND", "AOK", "HLT", "ADR", "INS"};
+char reg_string[16][4] = {
     "RAX", "RCX", "RDX", "RBX", "RSP", "RBP", "RSI", "RDI", "R8", "R9", "R10", "R11", "R12", "R13", "R14", "NIL"};
 
 instr_func_p instr_func_list[] = {
@@ -26,7 +29,7 @@ instr_func_p instr_func_list[] = {
     OPC0A_pushq,
     OPC0B_popq};
 
-int init(char * filename)
+int init(char *filename)
 {
     memset(REGS, 0, sizeof(int64_t) * 15);
     REGS[15] = 0xadeaddecadefaded;
@@ -92,7 +95,7 @@ int write_word_to_mem(int64_t addr, int64_t word)
 int exception(int state)
 {
     STAT = state;
-    printf("Program end because of state %s.\n", reasons[STAT - 1]);
+    printf("Program end because of state %s.\n", status_string[STAT]);
     end();
     return 0;
 }
@@ -102,11 +105,11 @@ void print_regs()
 {
     for (int i = 0; i < 8; i++)
     {
-        printf("%s\t\t0x%0.16" PRIX64 "\t\t%s\t\t0x%0.16" PRIX64 "\n", reg_names[i], REGS[i], reg_names[i + 8], REGS[i + 8]);
+        printf("%s\t\t0x%0.16" PRIX64 "\t\t%s\t\t0x%0.16" PRIX64 "\n", reg_string[i], REGS[i], reg_string[i + 8], REGS[i + 8]);
     }
     printf("\n\n");
     printf("ZF\t\t0x%0.16X\t\tSTAT\t\t%0.1X\t%s\nSF\t\t0x%0.16X\t\tPC\t\t0x%0.16" PRIX64 "\nOF\t\t0x%0.16x\n",
-           ZF, STAT, reasons[STAT - 1], SF, PC, OF);
+           ZF, STAT, status_string[STAT], SF, PC, OF);
 }
 
 // 打印内存
