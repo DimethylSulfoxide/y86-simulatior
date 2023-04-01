@@ -1,17 +1,14 @@
 #include <inttypes.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 #define AOK 1
 #define HLT 2
 #define ADR 3
 #define INS 4
-
 #define MEM_LENGTH 1024
-// 0xed
-#define OOM 237
 #define BYTES_PER_WORD 8
-
-typedef unsigned char uchar;
-
 #define RAX 0
 #define RCX 1
 #define RDX 2
@@ -28,22 +25,10 @@ typedef unsigned char uchar;
 #define R13 13
 #define R14 14
 #define NIL 15
+typedef unsigned char uchar;
+typedef void (*instr_func_p)(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
 
-int act_mem_len;
-
-// int64_t RAX, RCX, RDX, RBX, RSP, RBP, RSI, RDI, R8, R9, R10, R11, R12, R13, R14, NIL;
-int64_t REGS[16];
-
-uchar ZF, SF, OF;
-int8_t STAT;
-uchar MEM[MEM_LENGTH];
-int64_t PC;
-
-char reasons[4][4] = {"AOK", "HLT", "ADR", "INS"};
-char reg_names[16][4] = {
-    "RAX", "RCX", "RDX", "RBX", "RSP", "RBP", "RSI", "RDI", "R8", "R9", "R10", "R11", "R12", "R13", "R14", "NIL"};
-
-int init(void);
+int init(char *);
 uchar read_byte_from_mem(int64_t addr);
 int write_byte_to_mem(int64_t addr, uchar byte);
 int64_t read_word_from_mem(int64_t addr);
@@ -56,9 +41,8 @@ void print_regs();
 void print_mem(int);
 void end();
 int read_from_file(char *filename, uchar *dest);
-
+int write_to_mem(char *filename);
 int get_arguments(int64_t PC, uchar *op_p, uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
-
 void OPC00_halt(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
 void OPC01_nop(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
 void OPC02_cmovxx(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
@@ -71,19 +55,3 @@ void OPC08_call(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
 void OPC09_ret(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
 void OPC0A_pushq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
 void OPC0B_popq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
-
-typedef void (*instr_func_p)(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
-instr_func_p instr_func_list[] = {
-    OPC00_halt,
-    OPC01_nop,
-    OPC02_cmovxx,
-    OPC03_irmovq,
-    OPC04_rmmovq,
-    OPC05_mrmovq,
-    OPC06_opq,
-    OPC07_jxx,
-    OPC08_call,
-    OPC09_ret,
-    OPC0A_pushq,
-    OPC0B_popq
-};

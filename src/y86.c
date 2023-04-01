@@ -1,37 +1,39 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 #include "y86.h"
 
-int main(char argc, char **argv)
-{
-    if (argc == 1)
-    {
-        printf("Usage:\n\ty86.exe <filename>.\n");
-        exit(-1);
-    }
+int64_t REGS[16];
 
-    init();
-    uchar bytes[MEM_LENGTH];
-    char filename[100];
-    strcpy(filename, argv[1]);
-    act_mem_len = read_from_file(filename, bytes);
-    memcpy(MEM, bytes, sizeof(uchar) * act_mem_len);
-    while (1)
-    {
-        exec_single_instr();
-    }
-    return 0;
-}
+uchar ZF, SF, OF;
+int8_t STAT;
+uchar MEM[MEM_LENGTH];
+int64_t PC;
+uchar bytes[MEM_LENGTH];
 
-int init(void)
+char reasons[4][4] = {"AOK", "HLT", "ADR", "INS"};
+char reg_names[16][4] = {
+    "RAX", "RCX", "RDX", "RBX", "RSP", "RBP", "RSI", "RDI", "R8", "R9", "R10", "R11", "R12", "R13", "R14", "NIL"};
+
+instr_func_p instr_func_list[] = {
+    OPC00_halt,
+    OPC01_nop,
+    OPC02_cmovxx,
+    OPC03_irmovq,
+    OPC04_rmmovq,
+    OPC05_mrmovq,
+    OPC06_opq,
+    OPC07_jxx,
+    OPC08_call,
+    OPC09_ret,
+    OPC0A_pushq,
+    OPC0B_popq};
+
+int init(char * filename)
 {
     memset(REGS, 0, sizeof(int64_t) * 15);
     REGS[15] = 0xadeaddecadefaded;
     ZF = SF = OF = 0;
     PC = 0;
     STAT = AOK;
+    write_to_mem(filename);
     return 0;
 }
 
@@ -41,7 +43,6 @@ uchar read_byte_from_mem(int64_t addr)
     if (addr >= MEM_LENGTH || addr < 0)
     {
         exception(ADR);
-        return OOM;
     }
     else
     {
@@ -142,7 +143,6 @@ uchar get_rb(uchar rab)
     return rab & 0x0f;
 }
 
-
 int read_from_file(char *filename, uchar *dest)
 {
     FILE *fp = fopen(filename, "rt");
@@ -161,6 +161,12 @@ int read_from_file(char *filename, uchar *dest)
         }
     }
     return i;
+}
+
+int write_to_mem(char *filename)
+{
+    int i = read_from_file(filename, bytes);
+    memcpy(MEM, bytes, sizeof(uchar) * i);
 }
 
 int exec_single_instr(void)
@@ -486,23 +492,25 @@ void OPC09_ret(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
     REGS[RSP] += BYTES_PER_WORD;
     PC = tmp;
 }
-void OPC0A_pushq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p) {
+void OPC0A_pushq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
+{
     if (*func_p)
-            exception(INS);
-        if (*ra_p == 0x0f || *rb_p != 0x0f)
-        {
-            exception(INS);
-        }
-        REGS[RSP] -= BYTES_PER_WORD;
-        write_word_to_mem(REGS[RSP], REGS[*ra_p]);
+        exception(INS);
+    if (*ra_p == 0x0f || *rb_p != 0x0f)
+    {
+        exception(INS);
+    }
+    REGS[RSP] -= BYTES_PER_WORD;
+    write_word_to_mem(REGS[RSP], REGS[*ra_p]);
 }
-void OPC0B_popq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p) {
+void OPC0B_popq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
+{
     if (*func_p)
-            exception(INS);
-        if (*ra_p == 0x0f || *rb_p != 0x0f)
-        {
-            exception(INS);
-        }
-        REGS[*ra_p] = read_word_from_mem(REGS[RSP]);
-        REGS[RSP] += BYTES_PER_WORD;
+        exception(INS);
+    if (*ra_p == 0x0f || *rb_p != 0x0f)
+    {
+        exception(INS);
+    }
+    REGS[*ra_p] = read_word_from_mem(REGS[RSP]);
+    REGS[RSP] += BYTES_PER_WORD;
 }
