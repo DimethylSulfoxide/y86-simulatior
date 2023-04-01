@@ -4,27 +4,13 @@
 #include <unistd.h>
 #include "y86.h"
 
-int init(void);
-uchar read_byte_from_mem(int64_t addr);
-int write_byte_to_mem(int64_t addr, uchar byte);
-int64_t read_word_from_mem(int64_t addr);
-int write_word_to_mem(int64_t addr, int64_t word);
-int exec_single_instr(void);
-int exception(int);
-uchar get_ra(uchar rab);
-uchar get_rb(uchar rab);
-void print_regs();
-void print_mem(int);
-void end();
-int read_from_file(char *filename, uchar *dest);
-
 int main(char argc, char **argv)
 {
-    if (argc == 1) {
+    if (argc == 1)
+    {
         printf("Usage:\n\ty86.exe <filename>.\n");
         exit(-1);
     }
-
 
     init();
     uchar bytes[MEM_LENGTH];
@@ -49,6 +35,7 @@ int init(void)
     return 0;
 }
 
+// 从mem中读取一个字节; 不改变addr的值
 uchar read_byte_from_mem(int64_t addr)
 {
     if (addr >= MEM_LENGTH || addr < 0)
@@ -58,11 +45,11 @@ uchar read_byte_from_mem(int64_t addr)
     }
     else
     {
-        // PC ++;
         return MEM[addr];
     }
 }
 
+// 写入一个字节
 int write_byte_to_mem(int64_t addr, uchar byte)
 {
     if (addr < 0 || addr >= MEM_LENGTH)
@@ -77,6 +64,7 @@ int write_byte_to_mem(int64_t addr, uchar byte)
     }
 }
 
+// 读取一个字,在这里是64位int
 int64_t read_word_from_mem(int64_t addr)
 {
     int64_t a = 0;
@@ -90,6 +78,7 @@ int64_t read_word_from_mem(int64_t addr)
     return a;
 }
 
+// 写入一个字
 int write_word_to_mem(int64_t addr, int64_t word)
 {
     for (int i = 0; i < 8; i++)
@@ -98,6 +87,7 @@ int write_word_to_mem(int64_t addr, int64_t word)
     }
 }
 
+// 引发异常,打印系统状态,退出程序
 int exception(int state)
 {
     STAT = state;
@@ -106,6 +96,7 @@ int exception(int state)
     return 0;
 }
 
+// 打印寄存器
 void print_regs()
 {
     for (int i = 0; i < 8; i++)
@@ -117,6 +108,7 @@ void print_regs()
            ZF, STAT, reasons[STAT - 1], SF, PC, OF);
 }
 
+// 打印内存
 void print_mem(int n)
 {
     for (int i = 0; i < n; i += 8)
@@ -126,6 +118,7 @@ void print_mem(int n)
     }
 }
 
+// 终止程序; hlt终止和aok终止()认为是正常推出
 void end()
 {
     print_regs();
@@ -137,386 +130,18 @@ void end()
         exit(-1);
 }
 
+// 获取寄存器字节的左寄存器(源)
 uchar get_ra(uchar rab)
 {
     return (rab & 0xf0) >> 4;
 }
 
+// 获取目的寄存器
 uchar get_rb(uchar rab)
 {
     return rab & 0x0f;
 }
 
-int exec_single_instr(void)
-{
-    uchar op, rab, ra, rb;
-    int64_t imm, tmp;
-
-    op = read_byte_from_mem(PC);
-    PC++;
-    switch (op >> 4)
-    {
-    case 0x00:
-        // halt
-        {
-            if (op & 0x0f)
-                exception(INS);
-            exception(HLT);
-            return 1;
-            break;
-        }
-
-    case 0x01:
-        // nop
-        {
-            if (op & 0x0f)
-                exception(INS);
-            break;
-        }
-
-    case 0x02:
-        // cmovle, etc.
-        {
-            rab = read_byte_from_mem(PC);
-            PC++;
-            ra = get_ra(rab);
-            rb = get_rb(rab);
-            if (rb == 0x0f || ra == 0x0f)
-            {
-                exception(ADR);
-                break;
-            }
-            switch (op & 0x0f)
-            {
-            case 0x00:
-                // rrmovq
-                REGS[rb] = REGS[ra];
-                break;
-
-            case 0x01:
-                // cmovle
-                if ((SF ^ OF | ZF) & 0x1)
-                    REGS[rb] = REGS[ra];
-                break;
-
-            case 0x02:
-                // cmovl
-                if ((SF ^ OF) & 0x1)
-                    REGS[rb] = REGS[ra];
-                break;
-
-            case 0x03:
-                // cmove
-                if (ZF & 0x1)
-                    REGS[rb] = REGS[ra];
-                break;
-
-            case 0x04:
-                // cmovne
-                if ((~ZF) & 0x1)
-                    REGS[rb] = REGS[ra];
-                break;
-
-            case 0x05:
-                // cmovge
-                if ((~(SF ^ OF)) & 0x1)
-                    REGS[rb] = REGS[ra];
-                break;
-
-            case 0x06:
-                // cmovg
-                if ((~(SF ^ OF) & ~ZF) & 0x1)
-                    REGS[rb] = REGS[ra];
-                break;
-
-            default:
-                // others
-                exception(INS);
-                break;
-            }
-            break;
-        }
-
-    case 0x03:
-        // irmovq
-        {
-            if (op & 0x0f)
-                exception(INS);
-            rab = read_byte_from_mem(PC);
-            PC++;
-            ra = get_ra(rab);
-            rb = get_rb(rab);
-            if (rb == 0x0f || ra != 0x0f)
-            {
-                exception(ADR);
-                break;
-            }
-            imm = read_word_from_mem(PC);
-            PC += BYTES_PER_WORD;
-            REGS[rb] = imm;
-            break;
-        }
-
-    case 0x04:
-        // rmmovq
-        {
-            if (op & 0x0f)
-                exception(INS);
-            rab = read_byte_from_mem(PC);
-            PC++;
-            ra = get_ra(rab);
-            rb = get_rb(rab);
-            if (rb == 0x0f || ra == 0x0f)
-            {
-                exception(ADR);
-                break;
-            }
-            imm = read_word_from_mem(PC);
-            PC += BYTES_PER_WORD;
-
-            write_word_to_mem(REGS[rb] + imm, REGS[ra]);
-            break;
-        }
-
-    case 0x05:
-        // mrmovq
-        {
-            if (op & 0x0f)
-                exception(INS);
-            rab = read_byte_from_mem(PC);
-            PC++;
-            ra = get_ra(rab);
-            rb = get_rb(rab);
-            if (rb == 0x0f || ra == 0x0f)
-            {
-                exception(ADR);
-                break;
-            }
-            imm = read_word_from_mem(PC);
-            PC += BYTES_PER_WORD;
-
-            REGS[rb] = read_word_from_mem(REGS[ra] + imm);
-            break;
-        }
-
-    case 0x06:
-        // opQ
-        {
-            rab = read_byte_from_mem(PC);
-            PC++;
-            ra = get_ra(rab);
-            rb = get_rb(rab);
-            if (rb == 0x0f || ra == 0x0f)
-            {
-                exception(ADR);
-                break;
-            }
-            switch (op & 0xf)
-            {
-            case 0:
-                tmp = REGS[ra] + REGS[rb];
-                // 两个加数符号位相同并且结果符号位与两者不同，则溢出
-                if ((!((0x1 & REGS[ra] >> 31) ^ (0x1 & REGS[rb] >> 31))) &&
-                    ((0x1 & REGS[ra] >> 31) ^ (0x1 & tmp >> 31)))
-                    OF = 0x1;
-                else
-                    OF = 0x0;
-
-                if (!tmp)
-                    ZF = 0x1;
-                else
-                    ZF = 0x0;
-                SF = 0x1 & tmp >> 31;
-
-                REGS[rb] = tmp;
-                break;
-
-            case 1:
-                // 同加法, 第二个加数取反加一按加法处理
-                // REGS[rb] = ~REGS[rb] + 1;
-                tmp = REGS[rb] - REGS[ra];
-                int64_t tra = REGS[ra];
-
-                if ((REGS[ra] == ~REGS[ra] + 1) && REGS[rb] > 0)
-                    OF = 0x1;
-
-                else
-                {
-                    tra = ~tra + 1;
-                    if ((!((0x1 & REGS[rb] >> 31) ^ (0x1 & tra >> 31))) &&
-                        ((0x1 & REGS[rb] >> 31) ^ (0x1 & tmp >> 31)))
-                        OF = 0x1;
-                    else
-                        OF = 0x0;
-                }
-
-                if (!tmp)
-                    ZF = 0x1;
-                else
-                    ZF = 0x0;
-                SF = 0x1 & tmp >> 31;
-
-                REGS[rb] = tmp;
-                break;
-
-            case 2:
-                // andq
-                REGS[rb] &= REGS[ra];
-
-                OF = 0;
-                if (!REGS[rb])
-                    ZF = 0x1;
-                else
-                    ZF = 0;
-                SF = 0x1 & tmp >> 31;
-                break;
-
-            case 3:
-                // xorq
-                REGS[rb] ^= REGS[ra];
-
-                OF = 0;
-                if (!REGS[rb])
-                    ZF = 0x1;
-                else
-                    ZF = 0;
-                SF = 0x1 & tmp >> 31;
-                break;
-
-            default:
-                exception(INS);
-                break;
-            }
-            break;
-        }
-
-    case 0x07:
-    {
-        imm = read_word_from_mem(PC);
-        PC += BYTES_PER_WORD;
-        if (imm < 0 || imm >= MEM_LENGTH)
-            exception(ADR);
-        switch (op & 0x0f)
-        {
-        case 0x00:
-            // jmp
-            PC = imm;
-            break;
-
-        case 0x01:
-            // jle
-            if ((SF ^ OF | ZF) & 0x1)
-                PC = imm;
-            break;
-
-        case 0x02:
-            // jl
-            if ((SF ^ OF) & 0x1)
-                PC = imm;
-            break;
-
-        case 0x03:
-            // je
-            if (ZF & 0x1)
-                PC = imm;
-            break;
-
-        case 0x04:
-            // jne
-            {
-
-                if ((~ZF) & 0x1)
-                    PC = imm;
-                break;
-            }
-        case 0x05:
-            // jge
-            if ((~(SF ^ OF)) & 0x1)
-                PC = imm;
-            break;
-
-        case 0x06:
-            // jg
-            if ((~(SF ^ OF) & ~ZF) & 0x1)
-                PC = imm;
-            break;
-
-        default:
-            // others
-            exception(INS);
-            break;
-        }
-        break;
-    }
-
-    case 0x08:
-    {
-        if (op & 0x0f)
-            exception(INS);
-        imm = read_word_from_mem(PC);
-        if (imm < 0 || imm >= MEM_LENGTH)
-            exception(ADR);
-        PC += BYTES_PER_WORD;
-        REGS[RSP] -= BYTES_PER_WORD;
-        write_word_to_mem(REGS[RSP], PC);
-        PC = imm;
-        break;
-    }
-
-    case 0x09:
-    {
-        if (op & 0x0f)
-            exception(INS);
-        imm = read_word_from_mem(REGS[RSP]);
-        if (imm < 0 || imm >= MEM_LENGTH)
-            exception(ADR);
-        REGS[RSP] += BYTES_PER_WORD;
-        PC = imm;
-        break;
-    }
-
-    case 0x0a:
-    {
-        if (op & 0x0f)
-            exception(INS);
-        rab = read_byte_from_mem(PC);
-        PC++;
-        ra = get_ra(rab);
-        rb = get_rb(rab);
-        if (ra == 0x0f || rb != 0x0f)
-        {
-            exception(INS);
-            break;
-        }
-        REGS[RSP] -= BYTES_PER_WORD;
-        write_word_to_mem(REGS[RSP], REGS[ra]);
-        break;
-    }
-
-    case 0x0b:
-    {
-        if (op & 0x0f)
-            exception(INS);
-        rab = read_byte_from_mem(PC);
-        PC++;
-        ra = get_ra(rab);
-        rb = get_rb(rab);
-        if (ra == 0x0f || rb != 0x0f)
-        {
-            exception(INS);
-            break;
-        }
-        REGS[ra] = read_word_from_mem(REGS[RSP]);
-        REGS[RSP] += BYTES_PER_WORD;
-        break;
-    }
-
-    default:
-        exception(INS);
-        break;
-    }
-    return STAT != 1;
-}
 
 int read_from_file(char *filename, uchar *dest)
 {
@@ -536,4 +161,348 @@ int read_from_file(char *filename, uchar *dest)
         }
     }
     return i;
+}
+
+int exec_single_instr(void)
+{
+    uchar op, func, ra, rb, *op_p = &op, *func_p = &func, *ra_p = &ra, *rb_p = &rb;
+    int64_t imm, *imm_p = &imm;
+    int length = get_arguments(PC, op_p, func_p, ra_p, rb_p, imm_p);
+    PC += length;
+    instr_func_list[op](func_p, ra_p, rb_p, imm_p);
+    return 0;
+}
+
+int get_arguments(int64_t PC, uchar *op_p, uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
+{
+    int length = 1;
+    uchar opfu = read_byte_from_mem(PC);
+    uchar rab;
+    *op_p = opfu >> 4 & 0x0f;
+    *func_p = opfu & 0xf;
+    switch (*op_p)
+    {
+    case 0x0: // halt
+    case 0x1: // nop
+    case 0x9: // ret
+        break;
+
+    case 0x2: // cmovxx
+    case 0x6: // opq
+    case 0xa: // pushq
+    case 0xb: // popq
+        length += 1;
+        rab = read_byte_from_mem(PC + 1);
+        *ra_p = get_ra(rab);
+        *rb_p = get_rb(rab);
+        break;
+
+    case 0x7: // jxx
+    case 0x8: // call
+        length += 8;
+        *imm_p = read_word_from_mem(PC + 1);
+        break;
+
+    case 0x3: // irmovq
+    case 0x4: // rmmovq
+    case 0x5: // mrmovq
+        length += 9;
+        rab = read_byte_from_mem(PC + 1);
+        *ra_p = get_ra(rab);
+        *rb_p = get_rb(rab);
+        *imm_p = read_word_from_mem(PC + 2);
+        break;
+
+    default:
+        exception(INS);
+        break;
+    }
+
+    return length;
+}
+
+void OPC00_halt(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
+{
+    if (*func_p)
+    {
+        exception(INS);
+    }
+    else
+        exception(HLT);
+}
+
+void OPC01_nop(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
+{
+    if (*func_p)
+        exception(INS);
+    return;
+}
+
+void OPC02_cmovxx(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
+{
+    if (*rb_p == 0x0f || *ra_p == 0x0f)
+    {
+        exception(ADR);
+    }
+    switch (*func_p)
+    {
+    case 0x00:
+        // rrmovq
+        REGS[*rb_p] = REGS[*ra_p];
+        break;
+
+    case 0x01:
+        // cmovle
+        if ((SF ^ OF | ZF) & 0x1)
+            REGS[*rb_p] = REGS[*ra_p];
+        break;
+
+    case 0x02:
+        // cmovl
+        if ((SF ^ OF) & 0x1)
+            REGS[*rb_p] = REGS[*ra_p];
+        break;
+
+    case 0x03:
+        // cmove
+        if (ZF & 0x1)
+            REGS[*rb_p] = REGS[*ra_p];
+        break;
+
+    case 0x04:
+        // cmovne
+        if ((~ZF) & 0x1)
+            REGS[*rb_p] = REGS[*ra_p];
+        break;
+
+    case 0x05:
+        // cmovge
+        if ((~(SF ^ OF)) & 0x1)
+            REGS[*rb_p] = REGS[*ra_p];
+        break;
+
+    case 0x06:
+        // cmovg
+        if ((~(SF ^ OF) & ~ZF) & 0x1)
+            REGS[*rb_p] = REGS[*ra_p];
+        break;
+
+    default:
+        // others
+        exception(INS);
+        break;
+    }
+}
+
+void OPC03_irmovq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
+{
+    if (*func_p)
+        exception(INS);
+    if (*rb_p == 0x0f || *ra_p != 0x0f)
+    {
+        exception(ADR);
+    }
+    REGS[*rb_p] = *imm_p;
+}
+
+void OPC04_rmmovq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
+{
+    if (*func_p)
+        exception(INS);
+    if (*rb_p == 0x0f || *ra_p == 0x0f)
+    {
+        exception(ADR);
+    }
+    write_word_to_mem(REGS[*rb_p] + *imm_p, REGS[*ra_p]);
+}
+
+void OPC05_mrmovq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
+{
+    if (*func_p)
+        exception(INS);
+    if (*rb_p == 0x0f || *ra_p == 0x0f)
+    {
+        exception(ADR);
+    }
+    REGS[*rb_p] = read_word_from_mem(REGS[*ra_p] + *imm_p);
+}
+
+void OPC06_opq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
+{
+    int64_t tmp;
+    if (*rb_p == 0x0f || *ra_p == 0x0f)
+    {
+        exception(ADR);
+    }
+    switch (*func_p)
+    {
+    case 0:
+        tmp = REGS[*ra_p] + REGS[*rb_p];
+        // 两个加数符号位相同并且结果符号位与两者不同，则溢出
+        if ((!((0x1 & REGS[*ra_p] >> 31) ^ (0x1 & REGS[*rb_p] >> 31))) &&
+            ((0x1 & REGS[*ra_p] >> 31) ^ (0x1 & tmp >> 31)))
+            OF = 0x1;
+        else
+            OF = 0x0;
+
+        if (!tmp)
+            ZF = 0x1;
+        else
+            ZF = 0x0;
+        SF = 0x1 & tmp >> 31;
+
+        REGS[*rb_p] = tmp;
+        break;
+
+    case 1:
+        // 同加法, 第二个加数取反加一按加法处理
+        // REGS[*rb_p] = ~REGS[*rb_p] + 1;
+        tmp = REGS[*rb_p] - REGS[*ra_p];
+        int64_t tra = REGS[*ra_p];
+
+        if ((REGS[*ra_p] == ~REGS[*ra_p] + 1) && REGS[*rb_p] > 0)
+            OF = 0x1;
+
+        else
+        {
+            tra = ~tra + 1;
+            if ((!((0x1 & REGS[*rb_p] >> 31) ^ (0x1 & tra >> 31))) &&
+                ((0x1 & REGS[*rb_p] >> 31) ^ (0x1 & tmp >> 31)))
+                OF = 0x1;
+            else
+                OF = 0x0;
+        }
+
+        if (!tmp)
+            ZF = 0x1;
+        else
+            ZF = 0x0;
+        SF = 0x1 & tmp >> 31;
+
+        REGS[*rb_p] = tmp;
+        break;
+
+    case 2:
+        // andq
+        REGS[*rb_p] &= REGS[*ra_p];
+
+        OF = 0;
+        if (!REGS[*rb_p])
+            ZF = 0x1;
+        else
+            ZF = 0;
+        SF = 0x1 & tmp >> 31;
+        break;
+
+    case 3:
+        // xorq
+        REGS[*rb_p] ^= REGS[*ra_p];
+
+        OF = 0;
+        if (!REGS[*rb_p])
+            ZF = 0x1;
+        else
+            ZF = 0;
+        SF = 0x1 & tmp >> 31;
+        break;
+
+    default:
+        exception(INS);
+        break;
+    }
+}
+void OPC07_jxx(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
+{
+    if (*imm_p < 0 || *imm_p >= MEM_LENGTH)
+        exception(ADR);
+    switch (*func_p)
+    {
+    case 0x00:
+        // jmp
+        PC = *imm_p;
+        break;
+
+    case 0x01:
+        // jle
+        if ((SF ^ OF | ZF) & 0x1)
+            PC = *imm_p;
+        break;
+
+    case 0x02:
+        // jl
+        if ((SF ^ OF) & 0x1)
+            PC = *imm_p;
+        break;
+
+    case 0x03:
+        // je
+        if (ZF & 0x1)
+            PC = *imm_p;
+        break;
+
+    case 0x04:
+        // jne
+        {
+
+            if ((~ZF) & 0x1)
+                PC = *imm_p;
+            break;
+        }
+    case 0x05:
+        // jge
+        if ((~(SF ^ OF)) & 0x1)
+            PC = *imm_p;
+        break;
+
+    case 0x06:
+        // jg
+        if ((~(SF ^ OF) & ~ZF) & 0x1)
+            PC = *imm_p;
+        break;
+
+    default:
+        // others
+        exception(INS);
+        break;
+    }
+}
+void OPC08_call(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
+{
+    if (*func_p)
+        exception(INS);
+    if (*imm_p < 0 || *imm_p >= MEM_LENGTH)
+        exception(ADR);
+    REGS[RSP] -= BYTES_PER_WORD;
+    write_word_to_mem(REGS[RSP], PC);
+    PC = *imm_p;
+}
+void OPC09_ret(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
+{
+    if (*func_p)
+        exception(INS);
+    int64_t tmp = read_word_from_mem(REGS[RSP]);
+    if (tmp < 0 || tmp >= MEM_LENGTH)
+        exception(ADR);
+    REGS[RSP] += BYTES_PER_WORD;
+    PC = tmp;
+}
+void OPC0A_pushq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p) {
+    if (*func_p)
+            exception(INS);
+        if (*ra_p == 0x0f || *rb_p != 0x0f)
+        {
+            exception(INS);
+        }
+        REGS[RSP] -= BYTES_PER_WORD;
+        write_word_to_mem(REGS[RSP], REGS[*ra_p]);
+}
+void OPC0B_popq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p) {
+    if (*func_p)
+            exception(INS);
+        if (*ra_p == 0x0f || *rb_p != 0x0f)
+        {
+            exception(INS);
+        }
+        REGS[*ra_p] = read_word_from_mem(REGS[RSP]);
+        REGS[RSP] += BYTES_PER_WORD;
 }
