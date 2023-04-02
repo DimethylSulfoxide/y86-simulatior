@@ -37,5 +37,6 @@
     irmovq 0x114514, %rax
     pushq %rax
     popq %rbx
+    halt
 .pos 0x200
 stack:

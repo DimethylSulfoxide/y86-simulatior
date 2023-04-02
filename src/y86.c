@@ -7,13 +7,67 @@ int8_t STAT;
 uchar MEM[MEM_LENGTH];
 int64_t PC;
 uchar bytes[MEM_LENGTH];
+char DISASM_STRING[MAX_LENGTH_SINGLE_INSTR];
 
-enum status {AOK = 1, HLT, ADR, INS};
-enum regs {RAX = 0, RCX, RDX, RBX, RSP, RBP, RSI, RDI, R8, R9, R10, R11, R12, R13, R14, NIL};
+enum status
+{
+    AOK = 1,
+    HLT,
+    ADR,
+    INS
+};
+enum regs
+{
+    RAX = 0,
+    RCX,
+    RDX,
+    RBX,
+    RSP,
+    RBP,
+    RSI,
+    RDI,
+    R8,
+    R9,
+    R10,
+    R11,
+    R12,
+    R13,
+    R14,
+    NIL
+};
 
 char status_string[5][4] = {"UND", "AOK", "HLT", "ADR", "INS"};
 char reg_string[16][4] = {
     "RAX", "RCX", "RDX", "RBX", "RSP", "RBP", "RSI", "RDI", "R8", "R9", "R10", "R11", "R12", "R13", "R14", "NIL"};
+char instr_string[][8] = {
+    "halt",
+    "nop",
+    "rrmovq",
+    "cmovle",
+    "cmovl",
+    "cmove",
+    "cmovne",
+    "cmovge",
+    "cmovg",
+    "irmovq",
+    "rmmovq",
+    "mrmovq",
+    "addq",
+    "subq",
+    "andq",
+    "xorq",
+    "jmp",
+    "jle",
+    "jl",
+    "je",
+    "jne",
+    "jge",
+    "jg",
+    "call",
+    "ret",
+    "pushq",
+    "popq",
+};
 
 instr_func_p instr_func_list[] = {
     OPC00_halt,
@@ -180,6 +234,95 @@ int exec_single_instr(void)
     PC += length;
     instr_func_list[op](func_p, ra_p, rb_p, imm_p);
     return 0;
+}
+
+int exec_single_instr_debug(void)
+{
+    system("cls");
+    uchar op, func, ra, rb, *op_p = &op, *func_p = &func, *ra_p = &ra, *rb_p = &rb;
+    int64_t imm, *imm_p = &imm;
+    int length = get_arguments(PC, op_p, func_p, ra_p, rb_p, imm_p);
+    print_regs();
+    disasm(op_p, func_p, ra_p, rb_p, imm_p);
+    printf("%0.16" PRIX64 "\t%s\n", PC,  DISASM_STRING);
+    system("pause");
+    PC += length;
+    instr_func_list[op](func_p, ra_p, rb_p, imm_p);
+    return 0;
+}
+
+int disasm(uchar *op_p, uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
+{
+    memset(DISASM_STRING, 0, MAX_LENGTH_SINGLE_INSTR);
+    char tmp[40] = {0};
+    int instr_name_index = 0;
+    switch (*op_p)
+    {
+    case 0x0:
+    case 0x1:
+        instr_name_index = 0 + *op_p + *func_p;
+        break;
+    case 0x2:
+        instr_name_index = 0 + *op_p + *func_p;
+        break;
+    case 0x3:
+    case 0x4:
+    case 0x5:
+    case 0x6:
+        instr_name_index = 0x6 + *op_p + *func_p;
+        break;
+    case 0x7:
+        instr_name_index = 16 + *func_p;
+        break;
+    case 0x8:
+    case 0x9:
+    case 0xa:
+    case 0xb:
+        instr_name_index = 15 + *op_p;
+        break;
+    }
+    strcat(DISASM_STRING, instr_string[instr_name_index]);
+    strcat(DISASM_STRING, "\t");
+
+    switch (*op_p)
+    {
+    case 0x0:
+    case 0x1:
+    case 0x9:
+        break;
+    case 0x7:
+    case 0x8:
+        sprintf(tmp, "0x%0.16" PRIX64, *imm_p);
+        strcat(DISASM_STRING, tmp);
+        break;
+    
+    case 0x2:
+    case 0x6:
+        sprintf(tmp, "%%%s, %%%s", reg_string[*ra_p], reg_string[*rb_p]);
+        strcat(DISASM_STRING, tmp);
+        break;
+
+    case 0xa:
+    case 0xb:
+        sprintf(tmp, "%%%s", reg_string[*ra_p]);
+        strcat(DISASM_STRING, tmp);
+        break;
+
+    case 0x3:
+        sprintf(tmp, "0x%0.16" PRIX64 ", %%%s", *imm_p, reg_string[*rb_p]);
+        strcat(DISASM_STRING, tmp);
+        break;
+
+    case 0x4:
+        sprintf(tmp, "%%%s, %" PRId64 "(%%%s)", reg_string[*ra_p], *imm_p, reg_string[*rb_p]);
+        strcat(DISASM_STRING, tmp);
+        break;
+
+    case 0x5:
+        sprintf(tmp, "%" PRId64 "(%%%s), %%%s", *imm_p, reg_string[*rb_p], reg_string[*ra_p]);
+        strcat(DISASM_STRING, tmp);
+        break;
+    }
 }
 
 int get_arguments(int64_t PC, uchar *op_p, uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)

@@ -5,6 +5,7 @@
 
 #define MEM_LENGTH 1024
 #define BYTES_PER_WORD 8
+#define MAX_LENGTH_SINGLE_INSTR 30
 typedef unsigned char uchar;
 typedef void (*instr_func_p)(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
 
@@ -14,6 +15,7 @@ int write_byte_to_mem(int64_t addr, uchar byte);
 int64_t read_word_from_mem(int64_t addr);
 int write_word_to_mem(int64_t addr, int64_t word);
 int exec_single_instr(void);
+int exec_single_instr_debug(void);
 int exception(int);
 uchar get_ra(uchar rab);
 uchar get_rb(uchar rab);
@@ -35,3 +37,4 @@ void OPC08_call(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
 void OPC09_ret(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
 void OPC0A_pushq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
 void OPC0B_popq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
+int disasm(uchar *op_p, uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
