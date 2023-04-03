@@ -8,6 +8,8 @@ uchar MEM[MEM_LENGTH];
 int64_t PC;
 uchar bytes[MEM_LENGTH];
 char DISASM_STRING[MAX_LENGTH_SINGLE_INSTR];
+int enable_out_file;
+char out_file_name[100];
 
 enum status
 {
@@ -83,7 +85,9 @@ instr_func_p instr_func_list[] = {
     OPC0A_pushq,
     OPC0B_popq};
 
-int init(char *filename)
+exec_single_instr_fp exec_func;
+
+int init(int enable_debug, char *filename, int out_file_exist, char *out_filename)
 {
     memset(REGS, 0, sizeof(int64_t) * 15);
     REGS[15] = 0xadeaddecadefaded;
@@ -91,6 +95,14 @@ int init(char *filename)
     PC = 0;
     STAT = AOK;
     write_to_mem(filename);
+    if (enable_debug)
+        exec_func = exec_single_instr_debug;
+    else
+        exec_func = exec_single_instr;
+
+    enable_out_file = out_file_exist;
+    if (enable_out_file)
+        strcpy(out_file_name, out_filename);
     return 0;
 }
 
@@ -182,6 +194,17 @@ void end()
     print_regs();
     printf("\n\n\n\n");
     print_mem(MEM_LENGTH);
+    if (enable_out_file)
+    {
+        int oldstream = dup(1);
+        // FILE* fp = fopen(out_file_name, 'w');
+        freopen(out_file_name, "w", stdout);
+        print_regs();
+        printf("\n\n\n\n");
+        print_mem(MEM_LENGTH);
+        dup2(oldstream, 1);
+        printf("File written to %s.\n", out_file_name);
+    }
     if (STAT == AOK || STAT == HLT)
         exit(0);
     else
@@ -244,7 +267,7 @@ int exec_single_instr_debug(void)
     int length = get_arguments(PC, op_p, func_p, ra_p, rb_p, imm_p);
     print_regs();
     disasm(op_p, func_p, ra_p, rb_p, imm_p);
-    printf("%0.16" PRIX64 "\t%s\n", PC,  DISASM_STRING);
+    printf("%0.16" PRIX64 "\t%s\n", PC, DISASM_STRING);
     system("pause");
     PC += length;
     instr_func_list[op](func_p, ra_p, rb_p, imm_p);
@@ -295,7 +318,7 @@ int disasm(uchar *op_p, uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
         sprintf(tmp, "0x%0.16" PRIX64, *imm_p);
         strcat(DISASM_STRING, tmp);
         break;
-    
+
     case 0x2:
     case 0x6:
         sprintf(tmp, "%%%s, %%%s", reg_string[*ra_p], reg_string[*rb_p]);

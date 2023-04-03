@@ -14,6 +14,7 @@ int main(char argc, char **argv)
     char out_filename[100];
     int flag = 0;
     int enable_debug = 0;
+    int out_file_exist = 0;
 
     if (argc == 1)
     {
@@ -35,6 +36,7 @@ int main(char argc, char **argv)
             break;
         case 'o':
             strcpy(out_filename, optarg);
+            out_file_exist = 1;
             break;
         }
     }
@@ -47,7 +49,7 @@ int main(char argc, char **argv)
         exit(-1);
     }
 
-    init(filename);
+    init(enable_debug, filename, out_file_exist, out_filename);
     while (1)
     {
         if (enable_debug)

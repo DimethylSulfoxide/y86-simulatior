@@ -2,14 +2,16 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #define MEM_LENGTH 1024
 #define BYTES_PER_WORD 8
 #define MAX_LENGTH_SINGLE_INSTR 30
 typedef unsigned char uchar;
 typedef void (*instr_func_p)(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
+typedef int (*exec_single_instr_fp)(void);
 
-int init(char *);
+int init(int, char *, int, char*);
 uchar read_byte_from_mem(int64_t addr);
 int write_byte_to_mem(int64_t addr, uchar byte);
 int64_t read_word_from_mem(int64_t addr);
