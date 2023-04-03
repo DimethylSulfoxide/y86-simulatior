@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define MEM_LENGTH 1024
+#define MEM_LENGTH 0x200
 #define BYTES_PER_WORD 8
 #define MAX_LENGTH_SINGLE_INSTR 30
 typedef unsigned char uchar;

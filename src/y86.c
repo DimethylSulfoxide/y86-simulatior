@@ -160,6 +160,7 @@ int write_word_to_mem(int64_t addr, int64_t word)
 // 引发异常,打印系统状态,退出程序
 int exception(int state)
 {
+    system("cls");
     STAT = state;
     printf("Program end because of state %s.\n", status_string[STAT]);
     end();
@@ -181,10 +182,17 @@ void print_regs()
 // 打印内存
 void print_mem(int n)
 {
-    for (int i = 0; i < n; i += 8)
+    for (int i = 0; i < n; i += 16)
     {
-        printf("%0.4X\t%0.2X %0.2X %0.2X %0.2X %0.2X %0.2X %0.2X %0.2X\n",
-               i, MEM[i + 0], MEM[i + 1], MEM[i + 2], MEM[i + 3], MEM[i + 4], MEM[i + 5], MEM[i + 6], MEM[i + 7]);
+
+        printf("%0.4X\t", i);
+        for (int j = 0; j < 16; j++)
+            printf("%0.2X ", MEM[i + j]);
+        printf("\n");
+        // printf("%0.4X\t%0.2X %0.2X %0.2X %0.2X %0.2X %0.2X %0.2X %0.2X\t",
+        //        i, MEM[i + 0], MEM[i + 1], MEM[i + 2], MEM[i + 3], MEM[i + 4], MEM[i + 5], MEM[i + 6], MEM[i + 7]);
+        // printf("%0.4X\t%0.2X %0.2X %0.2X %0.2X %0.2X %0.2X %0.2X %0.2X\n",
+        //        i, MEM[i + 8], MEM[i + 1], MEM[i + 2], MEM[i + 3], MEM[i + 4], MEM[i + 5], MEM[i + 6], MEM[i + 7]);
     }
 }
 
@@ -262,12 +270,15 @@ int exec_single_instr(void)
 int exec_single_instr_debug(void)
 {
     system("cls");
+    printf("Next Instruction:\t");
     uchar op, func, ra, rb, *op_p = &op, *func_p = &func, *ra_p = &ra, *rb_p = &rb;
     int64_t imm, *imm_p = &imm;
     int length = get_arguments(PC, op_p, func_p, ra_p, rb_p, imm_p);
-    print_regs();
     disasm(op_p, func_p, ra_p, rb_p, imm_p);
-    printf("%0.16" PRIX64 "\t%s\n", PC, DISASM_STRING);
+    printf("%0.4" PRIX64 "\t%s\n\n", PC, DISASM_STRING);
+    print_regs();
+    printf("\n\n");
+    print_mem(MEM_LENGTH);
     system("pause");
     PC += length;
     instr_func_list[op](func_p, ra_p, rb_p, imm_p);
