@@ -162,7 +162,7 @@ int exception(int state)
 {
     system("cls");
     STAT = state;
-    printf("Program end because of state %s.\n", status_string[STAT]);
+    printf("*************************************\nProgram end because of state %s.\n", status_string[STAT]);
     end();
     return 0;
 }
