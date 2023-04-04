@@ -39,4 +39,5 @@ void OPC08_call(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
 void OPC09_ret(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
 void OPC0A_pushq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
 void OPC0B_popq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
+void OPC0C_list(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);
 int disasm(uchar *op_p, uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p);

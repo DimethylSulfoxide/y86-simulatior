@@ -69,7 +69,7 @@ char instr_string[][8] = {
     "ret",
     "pushq",
     "popq",
-};
+    "list"};
 
 instr_func_p instr_func_list[] = {
     OPC00_halt,
@@ -83,7 +83,8 @@ instr_func_p instr_func_list[] = {
     OPC08_call,
     OPC09_ret,
     OPC0A_pushq,
-    OPC0B_popq};
+    OPC0B_popq,
+    OPC0C_list};
 
 exec_single_instr_fp exec_func;
 
@@ -160,7 +161,7 @@ int write_word_to_mem(int64_t addr, int64_t word)
 // 引发异常,打印系统状态,退出程序
 int exception(int state)
 {
-    system("cls");
+    // system("cls");
     STAT = state;
     printf("*************************************\nProgram end because of state %s.\n", status_string[STAT]);
     end();
@@ -312,6 +313,7 @@ int disasm(uchar *op_p, uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
     case 0x9:
     case 0xa:
     case 0xb:
+    case 0xc:
         instr_name_index = 15 + *op_p;
         break;
     }
@@ -353,6 +355,7 @@ int disasm(uchar *op_p, uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
         break;
 
     case 0x5:
+    case 0xc: // list
         sprintf(tmp, "%" PRId64 "(%%%s), %%%s", *imm_p, reg_string[*rb_p], reg_string[*ra_p]);
         strcat(DISASM_STRING, tmp);
         break;
@@ -392,6 +395,7 @@ int get_arguments(int64_t PC, uchar *op_p, uchar *func_p, uchar *ra_p, uchar *rb
     case 0x3: // irmovq
     case 0x4: // rmmovq
     case 0x5: // mrmovq
+    case 0xc: // list
         length += 9;
         rab = read_byte_from_mem(PC + 1);
         *ra_p = get_ra(rab);
@@ -693,4 +697,24 @@ void OPC0B_popq(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
     }
     REGS[*ra_p] = read_word_from_mem(REGS[RSP]);
     REGS[RSP] += BYTES_PER_WORD;
+}
+void OPC0C_list(uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
+{
+    if (*func_p || (*ra_p == 0xf) && (*rb_p == 0xf))
+        exception(INS);
+
+    if (*ra_p == 0xf)
+    {
+        printf("Reg %s\t0x%0.16" PRIX16 "\n", reg_string[*rb_p], REGS[*rb_p]);
+    }
+
+    if (*rb_p == 0xf)
+    {
+        int64_t adr = REGS[*ra_p] + *imm_p;
+
+        printf("Mem at 0x%0.8X\t", adr);
+        for (int i = 0; i < 8; i++)
+            printf("%0.2X ", read_byte_from_mem(adr + i));
+        printf("\n");
+    }
 }

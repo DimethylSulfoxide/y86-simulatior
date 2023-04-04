@@ -32,11 +32,15 @@
 # .pos 0x100
 # stack:
 
-.pos 0
-    irmovq stack, %rsp
+# .pos 0
+#     irmovq stack, %rsp
+#     irmovq 0x114514, %rax
+#     pushq %rax
+#     popq %rbx
+#     halt
+# .pos 0x200
+# stack:
+
     irmovq 0x114514, %rax
-    pushq %rax
-    popq %rbx
-    halt
-.pos 0x200
-stack:
+    list 0xf, %rax
+    list 9(%rbx), 0xf

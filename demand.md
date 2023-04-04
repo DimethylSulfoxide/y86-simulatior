@@ -90,9 +90,21 @@ rsp: stack pointer
 
 1. 能够输出寄存器，储存器的值 
    
-   - 类似gdb调试的窗口，同时增加list指令
+   - 类似gdb调试的窗口，同时增加list指令 done.
+  
+listq $imm // list word at address $imm
+listc %reg
 
-2. 正确性检验
+or
+
+list $imm(%reg), 0xf
+list 0, 0xf, %reg [accepted]
+
+list D(%reg), %reg
+- list 0xf, %reg show %reg
+- list D(%reg), 0xf show [reg + d]
+
+1. 正确性检验
    - 增加输出指定信息的函数
    - 脚本检验
 
