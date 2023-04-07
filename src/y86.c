@@ -356,7 +356,7 @@ int disasm(uchar *op_p, uchar *func_p, uchar *ra_p, uchar *rb_p, int64_t *imm_p)
 
     case 0x5:
     case 0xc: // list
-        sprintf(tmp, "%" PRId64 "(%%%s), %%%s", *imm_p, reg_string[*rb_p], reg_string[*ra_p]);
+        sprintf(tmp, "%" PRId64 "(%%%s), %%%s", *imm_p, reg_string[*ra_p], reg_string[*rb_p]);
         strcat(DISASM_STRING, tmp);
         break;
     }
