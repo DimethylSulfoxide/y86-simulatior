@@ -10,3 +10,4 @@ build/
 test/
 tools/
 homework/
+log*
